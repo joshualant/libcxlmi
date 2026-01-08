@@ -7,7 +7,8 @@ deps = [ libdbus_dep ]
 sources = [
 	'cxlmi/log.c',
 	'cxlmi/commands.c',
-	'cxlmi/cxlmi.c'
+	'cxlmi/cxlmi.c',
+	'cxlmi/mock.c'
 ]
 
 cxlmi = library('cxlmi', # defaults to shared lib
@@ -22,5 +23,4 @@ libcxlmi_dep = declare_dependency(
     link_with: cxlmi,
 )
 
-# Python bindings
 subdir('python')

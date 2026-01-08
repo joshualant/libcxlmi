@@ -4,7 +4,7 @@
 #
 project(
     'libcxlmi', ['c'],
-    meson_version: '>= 0.57.0',
+    meson_version: '>= 0.60.0',
     version: '0.0.1',
     license: 'LGPL-2.1-or-later',
     default_options: [
@@ -19,7 +19,7 @@ project(
 
 ################################################################################
 cc = meson.get_compiler('c')
-cxx_available = add_languages('cpp', required: false, native: false)
+cxx_available = add_languages('cpp', required: false, native:false)
 
 prefixdir  = get_option('prefix')
 libdir     = join_paths(prefixdir, get_option('libdir'))
@@ -190,6 +190,17 @@ subdir('examples')
 if get_option('tests')
     subdir('tests')
 endif
+
+################################################################################
+# Generate and install pkg-config file
+pkg = import('pkgconfig')
+pkg.generate(
+    name: 'libcxlmi',
+    description: 'CXL Management Interface library',
+    version: meson.project_version(),
+    libraries: cxlmi,
+    subdirs: '.',
+)
 
 ################################################################################
 if meson.version().version_compare('>=0.53.0')
