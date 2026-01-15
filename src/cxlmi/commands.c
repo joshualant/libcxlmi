@@ -2411,6 +2411,57 @@ CXLMI_EXPORT int cxlmi_cmd_fmapi_get_domain_validation_sv(struct cxlmi_endpoint 
 	return rc;
 }
 
+CXLMI_EXPORT int cxlmi_cmd_fmapi_get_virtual_switch_info(struct cxlmi_endpoint *ep,
+			    struct cxlmi_tunnel_info *ti,
+			    struct cxlmi_cmd_fmapi_get_virtual_switch_info_req *in,
+			    struct cxlmi_cmd_fmapi_get_virtual_switch_info_rsp *ret)
+{
+        struct cxlmi_cmd_fmapi_get_virtual_switch_info_req *req_pl;
+        struct cxlmi_cmd_fmapi_get_virtual_switch_info_rsp *rsp_pl;
+	_cleanup_free_ struct cxlmi_cci_msg *req = NULL;
+	_cleanup_free_ struct cxlmi_cci_msg *rsp = NULL;
+        ssize_t rsp_sz, req_sz;
+        ssize_t id_list_sz = (in->num_vcs) * sizeof(*(in->vcs_id_list));
+        int rc = -1;
+
+        req_sz = sizeof(*req_pl) + id_list_sz + sizeof(*req);
+	req = calloc(1, req_sz);
+	if (!req)
+		return -1;
+
+	arm_cci_request(ep, req, sizeof(*req_pl), VIRTUAL_SWITCH, GET_VIRTUAL_SWITCH_INFO);
+	req_pl = (struct cxlmi_cmd_fmapi_get_virtual_switch_info_req *)req->payload;
+
+        req_pl->start_vppb = in->start_vppb;
+        req_pl->vppb_list_limit = in->vppb_list_limit;
+        req_pl->num_vcs = in->num_vcs;
+	for (int i = 0; i < in->num_vcs; i++)
+                req_pl->vcs_id_list[i] = in->vcs_id_list[i];
+
+        // Alloc for variable size info block (CXL r3.2 Section 7.6.7.2.1: Table 7-32)
+        // Need allocation for max possible vppbs, although some may be unused.
+        rsp_sz = sizeof(*rsp) + sizeof(*rsp_pl)
+            + (sizeof(*(rsp_pl->info_block.list_entries)) * req_pl->vppb_list_limit);
+	rsp = calloc(1, rsp_sz);
+
+	rc = send_cmd_cci(ep, ti, req, req_sz, rsp, rsp_sz, rsp_sz);
+	if (rc)
+		return rc;
+
+        rsp_pl = (struct cxlmi_cmd_fmapi_get_virtual_switch_info_rsp *)rsp->payload;
+        ret->num_vcs = rsp_pl->num_vcs;
+        ret->rsvd[3] = rsp_pl->rsvd[3];
+        ret->info_block = rsp_pl->info_block;
+        ret->info_block.vcs_id = rsp_pl->info_block.vcs_id;
+        ret->info_block.vcs_state = rsp_pl->info_block.vcs_state;
+        ret->info_block.usp_id = rsp_pl->info_block.usp_id;
+        ret->info_block.num_vppbs = rsp_pl->info_block.num_vppbs;
+	for (int i = 0; i < ret->info_block.num_vppbs; i++)
+                ret->info_block.list_entries[i] = rsp_pl->info_block.list_entries[i];
+
+        return rc;
+}
+
 CXLMI_EXPORT int cxlmi_cmd_fmapi_bind_vppb(struct cxlmi_endpoint *ep,
 			    struct cxlmi_tunnel_info *ti,
 			    struct cxlmi_cmd_fmapi_bind_vppb_req *in)

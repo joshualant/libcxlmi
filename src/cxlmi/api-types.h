@@ -713,6 +713,40 @@ struct cxlmi_cmd_fmapi_get_domain_validation_sv_rsp {
 	uint8_t secret_value_uuid[0x10];
 } __attribute__((packed));
 
+/* CXL r3.2 Section 7.6.7.2.1: Get Virtual CXL Switch Info (Opcode 5200h) */
+struct cxlmi_cmd_fmapi_get_virtual_switch_info_req {
+    uint8_t start_vppb;
+    uint8_t vppb_list_limit;
+    uint8_t num_vcs;
+    uint8_t vcs_id_list[];
+} __attribute__((packed));
+
+struct vppb_list_entry {
+    uint8_t bind_status;
+    union {
+        struct {
+            uint8_t bound_port_id;
+            uint8_t bound_ld_id;
+        };
+        uint16_t bound_pid;
+    };
+    uint8_t rsvd;
+} __attribute__((packed));
+
+struct vcs_info_block {
+    uint8_t vcs_id;
+    uint8_t vcs_state;
+    uint8_t usp_id;
+    uint8_t num_vppbs;
+    struct vppb_list_entry list_entries[];
+} __attribute__((packed));
+
+struct cxlmi_cmd_fmapi_get_virtual_switch_info_rsp {
+    uint8_t num_vcs;
+    uint8_t rsvd[3];
+    struct vcs_info_block info_block;
+} __attribute__((packed));
+
 /* CXL r3.1 Section 7.6.7.2.2: BindvPPB (Opcode 5201h) */
 struct cxlmi_cmd_fmapi_bind_vppb_req {
 	uint8_t vcs_id;
