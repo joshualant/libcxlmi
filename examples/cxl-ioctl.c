@@ -211,41 +211,6 @@ static int play_with_scan_media(struct cxlmi_endpoint *ep)
 	return 0;
 }
 
-static int show_cel(struct cxlmi_endpoint *ep, int cel_size)
-{
-	struct cxlmi_cmd_get_log_req in = {
-		.offset = 0,
-		.length = cel_size,
-	};
-	struct cxlmi_cmd_get_log_cel_rsp *ret;
-	int i, rc;
-
-	ret = calloc(1, sizeof(*ret) + cel_size);
-	if (!ret)
-		return -1;
-
-	memcpy(in.uuid, cel_uuid, sizeof(in.uuid));
-	rc = cxlmi_cmd_get_log_cel(ep, NULL, &in, ret);
-	if (rc)
-		goto done;
-
-	for (i = 0; i < cel_size / sizeof(*ret); i++) {
-		printf("\t[%04x] %s%s%s%s%s%s%s%s\n",
-		       ret[i].opcode,
-		       ret[i].command_effect & 0x1 ? "ColdReset " : "",
-		       ret[i].command_effect & 0x2 ? "ImConf " : "",
-		       ret[i].command_effect & 0x4 ? "ImData " : "",
-		       ret[i].command_effect & 0x8 ? "ImPol " : "",
-		       ret[i].command_effect & 0x10 ? "ImLog " : "",
-		       ret[i].command_effect & 0x20 ? "ImSec" : "",
-		       ret[i].command_effect & 0x40 ? "BgOp" : "",
-		       ret[i].command_effect & 0x80 ? "SecSup" : "");
-	}
-done:
-	free(ret);
-	return rc;
-}
-
 static int get_device_logs(struct cxlmi_endpoint *ep)
 {
 	int rc;

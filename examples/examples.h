@@ -152,3 +152,138 @@ static inline bool ep_supports_op(struct cxlmi_endpoint *ep, uint16_t opcode)
 	free(gsl);
 	return op_support;
 }
+
+int show_cel(struct cxlmi_endpoint *ep, int cel_size)
+{
+	struct cxlmi_cmd_get_log_req in = {
+		.offset = 0,
+		.length = cel_size,
+	};
+	struct cxlmi_cmd_get_log_cel_rsp *ret;
+	int i, rc;
+
+	ret = calloc(1, sizeof(*ret) + cel_size);
+	if (!ret)
+		return -1;
+
+	memcpy(in.uuid, cel_uuid, sizeof(in.uuid));
+	rc = cxlmi_cmd_get_log_cel(ep, NULL, &in, ret);
+	if (rc)
+		goto done;
+
+	for (i = 0; i < cel_size / sizeof(*ret); i++) {
+		printf("\t[%04x] %s%s%s%s%s%s%s%s\n",
+		       ret[i].opcode,
+		       ret[i].command_effect & 0x1 ? "ColdReset " : "",
+		       ret[i].command_effect & 0x2 ? "ImConf " : "",
+		       ret[i].command_effect & 0x4 ? "ImData " : "",
+		       ret[i].command_effect & 0x8 ? "ImPol " : "",
+		       ret[i].command_effect & 0x10 ? "ImLog " : "",
+		       ret[i].command_effect & 0x20 ? "ImSec" : "",
+		       ret[i].command_effect & 0x40 ? "BgOp" : "",
+		       ret[i].command_effect & 0x80 ? "SecSup" : "");
+	}
+done:
+	free(ret);
+	return rc;
+}
+
+void parse_cxlmi_cmd_fmapi_port_state_info_block(
+        struct cxlmi_cmd_fmapi_get_phys_port_state_rsp *in) {
+
+    for(int i = 0; i < in->num_ports; i++) {
+        struct cxlmi_cmd_fmapi_port_state_info_block blk = in->ports[i];
+        printf("port_id: %d\n"
+            "config_state: %d\n"
+            "conn_dev_cxl_ver: %d\n"
+            "rsv1: %d\n"
+            "conn_dev_type: %d\n"
+            "port_cxl_ver_bitmask: %d\n"
+            "max_link_width: %d\n"
+            "negotiated_link_width: %d\n"
+            "supported_link_speeds_vector: %d\n"
+            "max_link_speed: %d\n"
+            "current_link_speed: %d\n"
+            "ltssm_state: %d\n"
+            "first_lane_num: %d\n"
+            "link_state: %d\n"
+            "supported_ld_count: %d\n",
+            blk.port_id,
+            blk.config_state,
+            blk.conn_dev_cxl_ver,
+            blk.rsv1,
+            blk.conn_dev_type,
+            blk.port_cxl_ver_bitmask,
+            blk.max_link_width,
+            blk.negotiated_link_width,
+            blk.supported_link_speeds_vector,
+            blk.max_link_speed,
+            blk.current_link_speed,
+            blk.ltssm_state,
+            blk.first_lane_num,
+            blk.link_state,
+            blk.supported_ld_count);
+    }
+}
+
+int parse_vcs_info_rsp(struct cxlmi_cmd_fmapi_get_vcs_info_rsp *rsp) {
+    const struct cxlmi_cmd_fmapi_vcs_info_block *vcs;
+    const struct cxlmi_cmd_fmapi_vppb_info *vppb;
+    uint8_t i, j, nbytes;
+
+    printf("CXL FMAPI VCS Info:\n");
+    printf("  num_vcs: %u\n", rsp->num_vcs);
+    vcs = rsp->vcs_info_list;
+
+    for (i = 0; i < rsp->num_vcs; i++) {
+	    printf("  VCS[%u]:\n", i);
+	    printf("    vcs_id     : %u\n", vcs->vcs_id);
+	    printf("    vcs_state  : %u\n", vcs->vcs_state);
+	    printf("    usp_id     : %u\n", vcs->usp_id);
+	    printf("    num_vppbs  : %u\n", vcs->num_vppbs);
+	    vppb = vcs->vppbs;
+
+	    for (j = 0; j < vcs->num_vppbs; j++) {
+		    printf("      VPPB[%u]:\n", j);
+		    printf("        binding_status : %u\n", vppb->binding_status);
+		    printf("        bound_port_id  : %u\n", vppb->bound_port_id);
+		    printf("        bound_ld_id    : %u\n", vppb->bound_ld_id);
+		    printf("        rsvd           : %u\n", vppb->rsv1);
+		    vppb++;
+	    }
+
+            nbytes = sizeof(struct cxlmi_cmd_fmapi_vcs_info_block) +
+                (vcs->num_vppbs*sizeof(struct cxlmi_cmd_fmapi_vppb_info));
+            //vcs = ((uint8_t*)vcs)
+            uint8_t *vcs_tmp = ((uint8_t*)vcs) + nbytes;
+            vcs = (struct cxlmi_cmd_fmapi_vcs_info_block *)vcs_tmp;
+	    /* advance to next vcs_info_block */
+	    //vcs = (const struct cxlmi_cmd_fmapi_vcs_info_block *)vppb;
+    }
+    return 0;
+}
+
+void print_identify_switch_device_rsp(struct cxlmi_cmd_fmapi_identify_sw_device_rsp *rsp) {
+    printf("Identify Switch Device Response:\n");
+    printf("  Ingress Port ID: %u\n", rsp->ingress_port_id);
+    printf("  Reserved: %u\n", rsp->rsv1);
+    printf("  Number of Physical Ports: %u\n", rsp->num_physical_ports);
+    printf("  Number of VCS: %u\n", rsp->num_vcs);
+
+    printf("  Active Port Bitmask:\n    ");
+    for (int i = 0; i < 32; i++) {
+        printf("%02X ", rsp->active_port_bitmask[i]);
+        if ((i+1) % 16 == 0) printf("\n    ");
+    }
+
+    printf("\n  Active VCS Bitmask:\n    ");
+    for (int i = 0; i < 32; i++) {
+        printf("%02X ", rsp->active_vcs_bitmask[i]);
+        if ((i+1) % 16 == 0) printf("\n    ");
+    }
+
+    printf("\n  Total VPPBs: %u\n", rsp->num_total_vppb);
+    printf("  Active VPPBs: %u\n", rsp->num_active_vppb);
+    printf("  Number of HDM Decoders per USP: %u\n", rsp->num_hdm_decoder_per_usp);
+    printf("\n");
+}

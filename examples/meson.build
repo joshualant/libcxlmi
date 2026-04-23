@@ -22,3 +22,24 @@ executable(
     dependencies: libcxlmi_dep,
     include_directories: [inc]
 )
+
+executable(
+    'vcs-bind-mctp',
+    ['vcs-bind-mctp.c'],
+    dependencies: libcxlmi_dep,
+    include_directories: [inc]
+)
+
+executable(
+    'vcs-unbind-mctp',
+    ['vcs-unbind-mctp.c'],
+    dependencies: libcxlmi_dep,
+    include_directories: [inc]
+)
+
+executable(
+    'vcs-get-virtual-switch-info-mctp',
+    ['vcs-get-virtual-switch-info-mctp.c'],
+    dependencies: libcxlmi_dep,
+    include_directories: [inc]
+)
